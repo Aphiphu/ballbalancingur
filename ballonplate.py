@@ -51,7 +51,6 @@ angle_stored_y = []
 e = np.array([])
 # pandas dataframe for collecting data
 df=pd.DataFrame()
-df = df.reindex(df.columns.tolist() + ['set_x','set_y','cur_x','cur_y','error','derivative','integral','angle_x','angle_y','time'], axis=1)
 # pixel offset (in pixels)
 pixel_off_x = 10
 pixel_off_y = 10
@@ -174,7 +173,15 @@ if __name__ == '__main__':
             robot_commander.movel(CHANGE_POSE, t=MOVE_TIME)
         cv2.imshow("Frame", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
-
+            ['cur_x','cur_y','error','derivative','integral','angle_x','angle_y','time']
+            df['cur_x']=xs
+            df['cur_y']=ys
+            df['error']=e
+            df['derivative']=derivative
+            df['integral']=integral
+            df['angle_x']=angle_stored_x
+            df['angle_y']=angle_stored_y
+            df['time']=time
             break
     cap.release()
     cv2.destroyAllWindows()
