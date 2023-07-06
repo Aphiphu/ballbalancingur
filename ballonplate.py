@@ -110,7 +110,7 @@ def calc_angle(pos, i):
     angle_x = (-Kc_x *error[0] - Kd_x*derivative[0] - Ki_x*integral[0])/1.5
     angle_y = (-Kc_y *error[1] - Kd_y*derivative[1] - Ki_y*integral[1])/1.5
     # Limit movement of arm (in rad) 
-    max_angle = math.radians(1)
+    max_angle = math.radians(10)
     if angle_x > max_angle:
         angle_x = max_angle
     if angle_x < -max_angle:
