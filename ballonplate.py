@@ -4,7 +4,7 @@ import cv2
 import csv
 import math
 import numpy as np
-
+import pandas as pd
 
 # the IP address of the UR arm
 ROBOT_IP = '10.10.0.14'
@@ -42,15 +42,16 @@ time_step = 0.03
 integral = [0.0,0.0]
 derivative = [0.0,0.0]
 #Store variable for ploting
+t=np.array([])
 xs = np.array([])
 ys = np.array([])
 start=[]
 angle_stored_x = []
 angle_stored_y = []
-x_dot0 =0
 e = np.array([])
-SP = np.ones(len(t)) * 0
-
+# pandas dataframe for collecting data
+df=pd.DataFrame()
+df = df.reindex(df.columns.tolist() + ['set_x','set_y','cur_x','cur_y','error','derivative','integral','angle_x','angle_y','time'], axis=1)
 # pixel offset (in pixels)
 pixel_off_x = 10
 pixel_off_y = 10
@@ -60,9 +61,10 @@ BUFFER_SIZE = 255
 class RobotCommander():
     
     def __init__(self):
+        #set arm and gripper connection variables
         self._arm_connection = None
         self._gripper_connection = None
-        
+        # run establishing functions for arm and gripper
         self._establish_arm_connection()
         self._establish_gripper_connection()
         
@@ -172,6 +174,7 @@ if __name__ == '__main__':
             robot_commander.movel(CHANGE_POSE, t=MOVE_TIME)
         cv2.imshow("Frame", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
+
             break
     cap.release()
     cv2.destroyAllWindows()
