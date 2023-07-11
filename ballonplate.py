@@ -54,7 +54,7 @@ e = np.array([])
 # pandas dataframe for collecting data
 df=pd.DataFrame()
 #Pixel to MM conversion
-PIXEL_TO_MM=math.avg(pixel_1m_x,pixel_1m_y)
+PIXEL_TO_MM=1
 # pixel offset (in pixels)
 pixel_off_x = 10
 pixel_off_y = 10
@@ -166,6 +166,8 @@ if __name__ == '__main__':
             CHANGE_POSE[4]=rad_change[1]
             if (abs(y-set_y)<pixel_off_y): CHANGE_POSE[4]=0
             robot_commander.movel(CHANGE_POSE, t=MOVE_TIME)
+        else:
+             robot_commander.movel(HOME_POSE, t=MOVE_TIME)
         cv2.imshow("Frame", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             df['cur_x']=xs
@@ -177,7 +179,7 @@ if __name__ == '__main__':
             df['derivative_X']=derivative[0]
             df['derivative_y']=derivative[1]
             df['integral_x']=integral[0]
-            df['integral_x']=integral[1]
+            df['integral_y']=integral[1]
             df['angle_x']=angle_stored_x
             df['angle_y']=angle_stored_y
             delta_angle_x=angle_stored_x.copy()
