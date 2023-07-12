@@ -24,9 +24,9 @@ max_y = 475
 min_y = 1.5
 max_x = 422
 min_x = 12
-# Plate size in cm
-plate_y= 20
-plate_X= 13
+# Plate size in m
+plate_y= 0.20
+plate_X= 0.13
 # array to save change in angle
 y_rad_change=[0,0]
 # PID controller
