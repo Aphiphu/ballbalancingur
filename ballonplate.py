@@ -44,6 +44,7 @@ time_step = 0.03
 integral = [0.0,0.0]
 derivative = [0.0,0.0]
 #Store variable for ploting
+radius_Arr=[]
 t=np.array([])
 xs = np.array([])
 ys = np.array([])
@@ -55,9 +56,7 @@ e = np.array([])
 df=pd.DataFrame()
 #Pixel to MM conversion
 PIXEL_TO_MM=1
-# pixel offset (in pixels)
-pixel_off_x = 10
-pixel_off_y = 10
+
 # the buffer size
 BUFFER_SIZE = 255
 
@@ -154,8 +153,12 @@ if __name__ == '__main__':
             (x,y),radius = cv2.minEnclosingCircle(c)
             center = (int(x),int(y))
             radius = int(radius)
+            radius_Arr.append(radius)
             cv2.circle(frame,(set_x,set_y),20,(255,255,255),2)
             cv2.circle(frame,center,radius,(0,255,0),2)
+            # pixel offset (in pixels)
+            pixel_off_x = radius/3
+            pixel_off_y = radius/3
             cv2.circle(frame,center,radius=5, color=(0, 0, 255), thickness=-1)
             print(f"x:{x},y:{y}")            
             rad_change = calc_angle([x,y], count)
@@ -170,6 +173,7 @@ if __name__ == '__main__':
              robot_commander.movel(HOME_POSE, t=MOVE_TIME)
         cv2.imshow("Frame", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
+            df['radius']=radius_Arr
             df['cur_x']=xs
             df['cur_y']=ys
             e_X=[]; e_Y=[]
@@ -189,7 +193,7 @@ if __name__ == '__main__':
                 delta_angle_y[i]=delta_angle_y[i]-delta_angle_y[i-1]
             df['delta_angle_x']= delta_angle_x
             df['delta_angle_y']= delta_angle_y
-            df['time']=time
+            df['time']=t
             df.to_csv('balloutput.csv', encoding='utf-8')
             break
     cap.release()
