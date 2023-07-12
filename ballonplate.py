@@ -4,7 +4,7 @@ import cv2
 import csv
 import math
 import numpy as np
-
+import pandas as pd
 
 # the IP address of the UR arm
 ROBOT_IP = '10.10.0.14'
@@ -17,14 +17,16 @@ GRIPPER_PORT = 63352
 # the starting pose of the gripper (in [m, m, m, rad, rad, rad])
 HOME_POSE = [0.0662, -0.4362, 0.5636, 0.0, 0.0, 0.0]# the starting pose of the gripper (in [m, m, m, rad, rad, rad])
 CHANGE_POSE = HOME_POSE.copy()
-
-# Constants for plate position
+# Constants for plate position in pixels
 set_y = 220
 set_x = 250
 max_y = 475
 min_y = 1.5
 max_x = 422
 min_x = 12
+# Plate size in cm
+plate_y= 20
+plate_X= 13
 # array to save change in angle
 y_rad_change=[0,0]
 # PID controller
@@ -42,27 +44,29 @@ time_step = 0.03
 integral = [0.0,0.0]
 derivative = [0.0,0.0]
 #Store variable for ploting
+radius_Arr=[]
+t=np.array([])
 xs = np.array([])
 ys = np.array([])
 start=[]
 angle_stored_x = []
 angle_stored_y = []
-x_dot0 =0
 e = np.array([])
-SP = np.ones(len(t)) * 0
+# pandas dataframe for collecting data
+df=pd.DataFrame()
+#Pixel to MM conversion
+PIXEL_TO_MM=1
 
-# pixel offset (in pixels)
-pixel_off_x = 10
-pixel_off_y = 10
 # the buffer size
 BUFFER_SIZE = 255
 
 class RobotCommander():
     
     def __init__(self):
+        #set arm and gripper connection variables
         self._arm_connection = None
         self._gripper_connection = None
-        
+        # run establishing functions for arm and gripper
         self._establish_arm_connection()
         self._establish_gripper_connection()
         
@@ -105,24 +109,15 @@ def calc_angle(pos, i):
         derivative[1] = (ys[i]-ys[i-1])/ time_step
     integral[0] += error[0]*time_step
     integral[1] += error[1]*time_step
-    
     # PID eq
     angle_x = (-Kc_x *error[0] - Kd_x*derivative[0] - Ki_x*integral[0])/1.5
     angle_y = (-Kc_y *error[1] - Kd_y*derivative[1] - Ki_y*integral[1])/1.5
     # Limit movement of arm (in rad) 
     max_angle = math.radians(10)
-    if angle_x > max_angle:
-        angle_x = max_angle
-    if angle_x < -max_angle:
-        angle_x = -max_angle
-    if angle_y > max_angle:
-        angle_y = max_angle
-    if angle_y < -max_angle:
-        angle_y = -max_angle
-    # on the spot checking
-    print("Error", error)
-    print("Derivative", derivative)
-    print("Integral", integral)
+    if angle_x >  max_angle: angle_x =  max_angle
+    if angle_x < -max_angle: angle_x = -max_angle
+    if angle_y >  max_angle: angle_y =  max_angle
+    if angle_y < -max_angle: angle_y = -max_angle
     angle_stored_x.append(angle_x)
     angle_stored_y.append(angle_y)
     return angle_x,angle_y
@@ -158,8 +153,12 @@ if __name__ == '__main__':
             (x,y),radius = cv2.minEnclosingCircle(c)
             center = (int(x),int(y))
             radius = int(radius)
+            radius_Arr.append(radius)
             cv2.circle(frame,(set_x,set_y),20,(255,255,255),2)
             cv2.circle(frame,center,radius,(0,255,0),2)
+            # pixel offset (in pixels)
+            pixel_off_x = radius/3
+            pixel_off_y = radius/3
             cv2.circle(frame,center,radius=5, color=(0, 0, 255), thickness=-1)
             print(f"x:{x},y:{y}")            
             rad_change = calc_angle([x,y], count)
@@ -170,8 +169,32 @@ if __name__ == '__main__':
             CHANGE_POSE[4]=rad_change[1]
             if (abs(y-set_y)<pixel_off_y): CHANGE_POSE[4]=0
             robot_commander.movel(CHANGE_POSE, t=MOVE_TIME)
+        else:
+             robot_commander.movel(HOME_POSE, t=MOVE_TIME)
         cv2.imshow("Frame", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
+            df['radius']=radius_Arr
+            df['cur_x']=xs
+            df['cur_y']=ys
+            e_X=[]; e_Y=[]
+            for i in range(len(e)): e_X.append(e[i])  if i%2==0 else e_Y.append(e[i])  
+            df['error_X']=e_X
+            df['error_Y']=e_Y
+            df['derivative_X']=derivative[0]
+            df['derivative_y']=derivative[1]
+            df['integral_x']=integral[0]
+            df['integral_y']=integral[1]
+            df['angle_x']=angle_stored_x
+            df['angle_y']=angle_stored_y
+            delta_angle_x=angle_stored_x.copy()
+            delta_angle_y=angle_stored_y.copy()
+            for i in range(1, len(delta_angle_x)):
+                delta_angle_x[i]=delta_angle_x[i]-delta_angle_x[i-1]
+                delta_angle_y[i]=delta_angle_y[i]-delta_angle_y[i-1]
+            df['delta_angle_x']= delta_angle_x
+            df['delta_angle_y']= delta_angle_y
+            df['time']=t
+            df.to_csv('balloutput.csv', encoding='utf-8')
             break
     cap.release()
     cv2.destroyAllWindows()
