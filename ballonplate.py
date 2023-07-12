@@ -5,6 +5,7 @@ import csv
 import math
 import numpy as np
 import pandas as pd
+import matplotlib.pyplot as plt
 
 # the IP address of the UR arm
 ROBOT_IP = '10.10.0.14'
@@ -17,6 +18,9 @@ GRIPPER_PORT = 63352
 # the starting pose of the gripper (in [m, m, m, rad, rad, rad])
 HOME_POSE = [0.0662, -0.4362, 0.5636, 0.0, 0.0, 0.0]# the starting pose of the gripper (in [m, m, m, rad, rad, rad])
 CHANGE_POSE = HOME_POSE.copy()
+# Constant Radius of ball 
+RADIUSMIN = 60
+RADIUSMAX = 80
 # Constants for plate position in pixels
 set_y = 220
 set_x = 250
@@ -40,12 +44,17 @@ Kd_y = 2.2/pixel_1m_y
 Kc_x = 0.8/pixel_1m_x
 Ki_x = 0.15/pixel_1m_x
 Kd_x = 2.2/pixel_1m_x
+
+Kc_y = Kc_x
+Ki_y = Ki_x
+Kd_y = Kd_x
+
 time_step = 0.03
 integral = [0.0,0.0]
 derivative = [0.0,0.0]
 #Store variable for ploting
 radius_Arr=[]
-t=np.array([])
+timevar=np.array([])
 xs = np.array([])
 ys = np.array([])
 start=[]
@@ -96,8 +105,8 @@ class RobotCommander():
         self._gripper_connection.send(b'SET POS 0\n')
 
 def calc_angle(pos, i):
-    global integral, derivative, time_step, xs, ys, t, e 
-    t = np.append(t,time.time()-t0)
+    global integral, derivative, time_step, xs, ys, timevar, e 
+    timevar = np.append(timevar,time.time()-t0)
     x0 = pos[0]
     y0 = pos[1]
     xs = np.append(xs,x0)
@@ -120,9 +129,14 @@ def calc_angle(pos, i):
     if angle_y < -max_angle: angle_y = -max_angle
     angle_stored_x.append(angle_x)
     angle_stored_y.append(angle_y)
+    
     return angle_x,angle_y
          
-
+def Cumulative(templist):
+    cu_list = []
+    length = len(templist)
+    cu_list = [sum(templist[0:x:1]) for x in range(0, length+1)]
+    return cu_list[1:]
         
 if __name__ == '__main__':
     robot_commander = RobotCommander()
@@ -157,8 +171,8 @@ if __name__ == '__main__':
             cv2.circle(frame,(set_x,set_y),20,(255,255,255),2)
             cv2.circle(frame,center,radius,(0,255,0),2)
             # pixel offset (in pixels)
-            pixel_off_x = radius/3
-            pixel_off_y = radius/3
+            pixel_off_x = 30
+            pixel_off_y = 30
             cv2.circle(frame,center,radius=5, color=(0, 0, 255), thickness=-1)
             print(f"x:{x},y:{y}")            
             rad_change = calc_angle([x,y], count)
@@ -169,8 +183,10 @@ if __name__ == '__main__':
             CHANGE_POSE[4]=rad_change[1]
             if (abs(y-set_y)<pixel_off_y): CHANGE_POSE[4]=0
             robot_commander.movel(CHANGE_POSE, t=MOVE_TIME)
+            time.sleep(0.03)
         else:
-             robot_commander.movel(HOME_POSE, t=MOVE_TIME)
+            robot_commander.movel(HOME_POSE, t=MOVE_TIME)
+            time.sleep(0.03)
         cv2.imshow("Frame", frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             df['radius']=radius_Arr
@@ -193,8 +209,25 @@ if __name__ == '__main__':
                 delta_angle_y[i]=delta_angle_y[i]-delta_angle_y[i-1]
             df['delta_angle_x']= delta_angle_x
             df['delta_angle_y']= delta_angle_y
-            df['time']=t
+            df['time']=timevar*10
             df.to_csv('balloutput.csv', encoding='utf-8')
+
+            fig, axs = plt.subplots(2, 2)
+            axs[0, 0].set_title("X vs time")
+            axs[0, 0].plot(Cumulative(df['time']), df['cur_x'])
+            axs[0, 0].axhline(y=set_x, color='r', linestyle='-')
+
+            axs[1, 0].set_title("Y vs time")
+            axs[1, 0].plot(Cumulative(df['time']), df['cur_y'])
+            axs[1, 0].axhline(y=set_y, color='r', linestyle='-')
+
+            axs[0, 1].set_title("dX vs time")
+            axs[0, 1].plot(Cumulative(df['time']), df['delta_angle_x'])
+            
+            axs[1, 1].set_title("dY vs time")
+            axs[1, 1].plot(Cumulative(df['time']), df['delta_angle_y'])
+            
+            plt.show()
             break
     cap.release()
     cv2.destroyAllWindows()
