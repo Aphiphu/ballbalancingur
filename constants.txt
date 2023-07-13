@@ -1,0 +1,8 @@
+ball Constants
+
+plate Constants
+x=0.13m
+y-0.20m
+Arm Constants
+a=1.2m/s^2
+v=0.25m/s
