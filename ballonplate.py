@@ -21,6 +21,19 @@ CHANGE_POSE = HOME_POSE.copy()
 # Constant Radius of ball 
 RADIUSMIN = 60
 RADIUSMAX = 80
+#total horizontal and vertical pixels
+THP = 1
+TVP = 1
+#total width and length (in)
+TW=1
+TL=1
+#find DPI for our system
+DPI_manual=[THP/TW+TVP/TL]
+DPI_automatic=10
+#Pixel to MM convrsion
+PIXEL_TO_MM=25.4/DPI_automatic
+# the buffer size
+BUFFER_SIZE = 255
 # Constants for plate position in pixels
 set_y = 220
 set_x = 250
@@ -45,10 +58,6 @@ Kc_x = 0.8/pixel_1m_x
 Ki_x = 0.15/pixel_1m_x
 Kd_x = 2.2/pixel_1m_x
 
-Kc_y = Kc_x
-Ki_y = Ki_x
-Kd_y = Kd_x
-
 time_step = 0.03
 integral = [0.0,0.0]
 derivative = [0.0,0.0]
@@ -63,11 +72,9 @@ angle_stored_y = []
 e = np.array([])
 # pandas dataframe for collecting data
 df=pd.DataFrame()
-#Pixel to MM conversion
-PIXEL_TO_MM=1
-
-# the buffer size
-BUFFER_SIZE = 255
+# pixel offset (in pixels)
+pixel_off_x = 30
+pixel_off_y = 30
 
 class RobotCommander():
     
@@ -137,6 +144,15 @@ def Cumulative(templist):
     length = len(templist)
     cu_list = [sum(templist[0:x:1]) for x in range(0, length+1)]
     return cu_list[1:]
+
+def PingPongBallFilter(frame):
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+    lower_orange = np.array([14,100,100])
+    upper_orange = np.array([21,255,255])
+    mask = cv2.inRange(hsv, lower_orange, upper_orange)
+    mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5),np.uint8))
+    mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5),np.uint8))
+    return mask
         
 if __name__ == '__main__':
     robot_commander = RobotCommander()
@@ -153,13 +169,8 @@ if __name__ == '__main__':
     start.append(t1)
     while (cap.isOpened()):
         ret, frame = cap.read()
-        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-        lower_orange = np.array([14,100,100])
-        upper_orange = np.array([21,255,255])
-        mask = cv2.inRange(hsv, lower_orange, upper_orange)
-        mask = cv2.morphologyEx(mask, cv2.MORPH_CLOSE, np.ones((5,5),np.uint8))
-        mask = cv2.morphologyEx(mask, cv2.MORPH_OPEN, np.ones((5,5),np.uint8))
-        contours, hierarchy = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        mask_pingpong=PingPongBallFilter(frame)
+        contours, hierarchy = cv2.findContours(mask_pingpong, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         cv2.circle(frame,(set_x,set_y),20,(255,255,255),2)
         if len(contours) > 0:
             t0 = time.time()
@@ -170,9 +181,6 @@ if __name__ == '__main__':
             radius_Arr.append(radius)
             cv2.circle(frame,(set_x,set_y),20,(255,255,255),2)
             cv2.circle(frame,center,radius,(0,255,0),2)
-            # pixel offset (in pixels)
-            pixel_off_x = 30
-            pixel_off_y = 30
             cv2.circle(frame,center,radius=5, color=(0, 0, 255), thickness=-1)
             print(f"x:{x},y:{y}")            
             rad_change = calc_angle([x,y], count)
